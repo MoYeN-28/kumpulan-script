@@ -12,50 +12,80 @@ SectionFitur:NewToggle("Auto Farm (Persiapan)", "Tombol untuk farming", function
 end)
 
 -- ==========================================
--- [BAGIAN 2] Sistem Tombol Toggle (Buka/Tutup) Anti-Gagal
+-- [BAGIAN 2] Setup Folder Aman Khusus Delta
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
--- Menghapus tombol lama jika script dijalankan ulang
-if CoreGui:FindFirstChild("TombolBukaTutup") then
-    CoreGui.TombolBukaTutup:Destroy()
+-- Menggunakan gethui() milik Delta jika ada, jika tidak pakai CoreGui
+local safeGui = (gethui and gethui()) or CoreGui
+
+if safeGui:FindFirstChild("TombolMobile") then
+    safeGui.TombolMobile:Destroy()
 end
 
--- Membuat wadah UI baru
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TombolBukaTutup"
-ScreenGui.Parent = CoreGui
+ScreenGui.Name = "TombolMobile"
+ScreenGui.Parent = safeGui
 
--- Membuat Tombol Bulat Melayang
-local ToggleBtn = Instance.new("TextButton")
+-- Membuat Icon Gear (Seperti gambar Anda)
+local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Parent = ScreenGui
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50) -- Ukuran tombol 50x50
-ToggleBtn.Position = UDim2.new(0, 15, 0, 15) -- Posisi di pojok kiri atas
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.Text = "UI"
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextScaled = true
-ToggleBtn.Active = true
-ToggleBtn.Draggable = true -- Menggunakan fitur geser bawaan engine Roblox (Sangat stabil)
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 15)
+ToggleBtn.Image = "rbxassetid://6031280882" 
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleBtn.BackgroundTransparency = 0.2
 
--- Membuat tombol menjadi bulat sempurna
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = ToggleBtn
 
 -- ==========================================
--- [BAGIAN 3] Logika Ketuk (Klik)
+-- [BAGIAN 3] Logika Timer Sentuh & Geser Delta
 -- ==========================================
+local dragging = false
+local dragInput, dragStart, startPos
+local waktuSentuh = 0
 local uiTerbuka = true
 
-ToggleBtn.MouseButton1Click:Connect(function()
-    uiTerbuka = not uiTerbuka
-    
-    -- Mencari UI Kavo dan menyembunyikan/menampilkannya
-    local kavoUI = CoreGui:FindFirstChild("Kavo") or Players.LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Kavo")
-    if kavoUI then
-        kavoUI.Enabled = uiTerbuka
+ToggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleBtn.Position
+        waktuSentuh = tick() -- Mencatat waktu persis saat layar disentuh
+    end
+end)
+
+ToggleBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        ToggleBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+ToggleBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+        
+        -- LOGIKA KETUK: Jika jari menempel di layar kurang dari 0.3 detik (Ketuk Cepat)
+        if tick() - waktuSentuh < 0.3 then
+            uiTerbuka = not uiTerbuka
+            
+            -- Mencari UI Kavo di semua folder yang mungkin digunakan Delta
+            local kavoUI = safeGui:FindFirstChild("Kavo") or CoreGui:FindFirstChild("Kavo") or Players.LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Kavo")
+            
+            if kavoUI then
+                kavoUI.Enabled = uiTerbuka
+            end
+        end
     end
 end)
